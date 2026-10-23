@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/prebid/openrtb/v20/openrtb2"
@@ -15,6 +16,8 @@ import (
 	"github.com/prebid/prebid-server/v4/openrtb_ext"
 	"github.com/prebid/prebid-server/v4/util/jsonutil"
 )
+
+const auctionPriceMacro = "${AUCTION_PRICE}"
 
 type adapter struct {
 	EndpointTemplate *template.Template
@@ -170,6 +173,13 @@ func (adapter *adapter) MakeBids(internalRequest *openrtb2.BidRequest, externalR
 			errs = append(errs, newBadServerResponseError(fmt.Sprintf("Bid %s references unknown imp %s", bid.ID, bid.ImpID)))
 			continue
 		}
+		// Prebid Server runs a first-price auction, so the clearing price is the bid price. The exchange
+		// reads it from its tracking urls, and not every renderer resolves the macro (VAST served from
+		// Prebid Cache never does).
+		price := strconv.FormatFloat(bid.Price, 'f', -1, 64)
+		bid.AdM = strings.ReplaceAll(bid.AdM, auctionPriceMacro, price)
+		bid.NURL = strings.ReplaceAll(bid.NURL, auctionPriceMacro, price)
+		bid.BURL = strings.ReplaceAll(bid.BURL, auctionPriceMacro, price)
 		bidResponse.Bids = append(bidResponse.Bids, &adapters.TypedBid{
 			Bid:     &bid,
 			BidType: bidType,
