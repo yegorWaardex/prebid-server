@@ -42,7 +42,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=102",
         "body": {
-          "id": "0000000000001",
+          "id": "0000000000001-multi-adunit-banner",
           "imp": [
             {
               "id": "multi-adunit",
@@ -112,7 +112,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=102",
         "body": {
-          "id": "0000000000001",
+          "id": "0000000000001-multi-adunit-video",
           "imp": [
             {
               "id": "multi-adunit",

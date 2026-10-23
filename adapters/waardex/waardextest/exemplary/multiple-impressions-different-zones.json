@@ -53,7 +53,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=301",
         "body": {
-          "id": "0000000000003",
+          "id": "0000000000003-banner-3-banner",
           "imp": [
             {
               "id": "banner-3",
@@ -125,7 +125,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=302",
         "body": {
-          "id": "0000000000003",
+          "id": "0000000000003-banner-4-banner",
           "imp": [
             {
               "id": "banner-4",

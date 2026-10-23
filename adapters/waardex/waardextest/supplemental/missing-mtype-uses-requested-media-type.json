@@ -38,7 +38,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=101",
         "body": {
-          "id": "req-1",
+          "id": "req-1-imp-1-banner",
           "imp": [
             {
               "id": "imp-1",
@@ -99,7 +99,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=101",
         "body": {
-          "id": "req-1",
+          "id": "req-1-imp-1-video",
           "imp": [
             {
               "id": "imp-1",
@@ -164,7 +164,8 @@
             "impid": "imp-1",
             "price": 1.5,
             "adm": "<!-- banner -->",
-            "crid": "crid-1"
+            "crid": "crid-1",
+            "mtype": 1
           },
           "type": "banner"
         }
@@ -179,7 +180,8 @@
             "impid": "imp-1",
             "price": 1.5,
             "adm": "<VAST version=\"3.0\"></VAST>",
-            "crid": "crid-1"
+            "crid": "crid-1",
+            "mtype": 2
           },
           "type": "video"
         }

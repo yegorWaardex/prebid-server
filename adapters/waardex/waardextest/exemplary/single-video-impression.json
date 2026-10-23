@@ -34,7 +34,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=102",
         "body": {
-          "id": "0000000000001",
+          "id": "0000000000001-video-adunit-2-video",
           "imp": [
             {
               "id": "video-adunit-2",

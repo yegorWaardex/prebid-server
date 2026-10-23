@@ -48,7 +48,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=101",
         "body": {
-          "id": "req-1",
+          "id": "req-1-imp-1-banner",
           "cur": [
             "USD"
           ],
@@ -130,7 +130,8 @@
             "impid": "imp-1",
             "price": 3,
             "crid": "crid-1",
-            "adm": "<!-- admarkup -->"
+            "adm": "<!-- admarkup -->",
+            "mtype": 1
           },
           "type": "banner"
         }

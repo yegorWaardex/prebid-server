@@ -127,6 +127,9 @@ func isRewardedInventory(bidderExt *adapters.ExtImpBidder) bool {
 func (adapter *adapter) buildAdapterRequest(prebidBidRequest *openrtb2.BidRequest, params *openrtb_ext.ExtImpWaardex, imp openrtb2.Imp) (*adapters.RequestData, error) {
 	newBidRequest := *prebidBidRequest
 	newBidRequest.Imp = []openrtb2.Imp{imp}
+	// The exchange forwards a hash of the request id to its buyers as the auction id; the requests
+	// split from one auction must not reach a buyer as duplicates of each other.
+	newBidRequest.ID = fmt.Sprintf("%s-%s-%s", prebidBidRequest.ID, imp.ID, getImpMediaType(&imp))
 	// Buyers answering in another currency are rejected by the exchange; Prebid Server converts
 	// the dollar bids back to the request currency.
 	newBidRequest.Cur = []string{"USD"}
@@ -176,63 +179,68 @@ func (adapter *adapter) MakeBids(internalRequest *openrtb2.BidRequest, externalR
 		}
 	}
 
-	if len(bidResp.SeatBid) != 1 {
-		return nil, []error{
-			newBadServerResponseError(fmt.Sprintf("Invalid SeatBids count: %d", len(bidResp.SeatBid))),
-		}
-	}
+	requestedMediaTypes := getRequestedMediaTypes(internalRequest, externalRequest)
 
-	requestedMediaTypes, err := getRequestedMediaTypes(externalRequest)
-	if err != nil {
-		return nil, []error{err}
-	}
-
-	seatBid := bidResp.SeatBid[0]
-	bidResponse := adapters.NewBidderResponseWithBidsCapacity(len(bidResp.SeatBid[0].Bid))
+	bidResponse := adapters.NewBidderResponse()
 	if bidResp.Cur != "" {
 		bidResponse.Currency = bidResp.Cur
 	}
 	var errs []error
-	for i := 0; i < len(seatBid.Bid); i++ {
-		bid := seatBid.Bid[i]
-		bidType, ok := requestedMediaTypes[bid.ImpID]
-		if !ok {
-			errs = append(errs, newBadServerResponseError(fmt.Sprintf("Bid %s references unknown imp %s", bid.ID, bid.ImpID)))
-			continue
+	for _, seatBid := range bidResp.SeatBid {
+		for i := range seatBid.Bid {
+			bid := seatBid.Bid[i]
+			bidType, ok := requestedMediaTypes[bid.ImpID]
+			if !ok {
+				errs = append(errs, newBadServerResponseError(fmt.Sprintf("Bid %s references unknown imp %s", bid.ID, bid.ImpID)))
+				continue
+			}
+			bid.MType = markupTypes[bidType]
+			// Prebid Server runs a first-price auction, so the clearing price is the bid price. The exchange
+			// reads it from its tracking urls, and not every renderer resolves the macro (VAST served from
+			// Prebid Cache never does).
+			price := strconv.FormatFloat(bid.Price, 'f', -1, 64)
+			bid.AdM = strings.ReplaceAll(bid.AdM, auctionPriceMacro, price)
+			bid.NURL = strings.ReplaceAll(bid.NURL, auctionPriceMacro, price)
+			bid.BURL = strings.ReplaceAll(bid.BURL, auctionPriceMacro, price)
+			bidResponse.Bids = append(bidResponse.Bids, &adapters.TypedBid{
+				Bid:     &bid,
+				BidType: bidType,
+			})
 		}
-		// Prebid Server runs a first-price auction, so the clearing price is the bid price. The exchange
-		// reads it from its tracking urls, and not every renderer resolves the macro (VAST served from
-		// Prebid Cache never does).
-		price := strconv.FormatFloat(bid.Price, 'f', -1, 64)
-		bid.AdM = strings.ReplaceAll(bid.AdM, auctionPriceMacro, price)
-		bid.NURL = strings.ReplaceAll(bid.NURL, auctionPriceMacro, price)
-		bid.BURL = strings.ReplaceAll(bid.BURL, auctionPriceMacro, price)
-		bidResponse.Bids = append(bidResponse.Bids, &adapters.TypedBid{
-			Bid:     &bid,
-			BidType: bidType,
-		})
 	}
 	return bidResponse, errs
 }
 
+var markupTypes = map[openrtb_ext.BidType]openrtb2.MarkupType{
+	openrtb_ext.BidTypeBanner: openrtb2.MarkupBanner,
+	openrtb_ext.BidTypeVideo:  openrtb2.MarkupVideo,
+}
+
 // getRequestedMediaTypes maps every impression of an outgoing request to the single media type it
-// was requested with. That media type, not bid.mtype, decides the bid type: many buyers behind the
-// exchange leave mtype unset, and the exchange passes the buyer's mtype through unchanged, even for
-// in-banner video creatives it answers a banner impression with as banner markup.
-func getRequestedMediaTypes(externalRequest *adapters.RequestData) (map[string]openrtb_ext.BidType, error) {
+// was requested with. That media type, not bid.mtype, decides the bid type (and the bid's mtype is
+// set to match): many buyers behind the exchange leave mtype unset, and the exchange passes the
+// buyer's mtype through unchanged, even for in-banner video creatives it answers a banner
+// impression with as banner markup. A stored bid response has no outgoing request, so its
+// impressions are read from the incoming one.
+func getRequestedMediaTypes(internalRequest *openrtb2.BidRequest, externalRequest *adapters.RequestData) map[string]openrtb_ext.BidType {
 	var request openrtb2.BidRequest
 	if err := jsonutil.Unmarshal(externalRequest.Body, &request); err != nil {
-		return nil, err
+		request = *internalRequest
 	}
 	mediaTypes := make(map[string]openrtb_ext.BidType, len(request.Imp))
-	for _, imp := range request.Imp {
-		if imp.Video != nil {
-			mediaTypes[imp.ID] = openrtb_ext.BidTypeVideo
-		} else {
-			mediaTypes[imp.ID] = openrtb_ext.BidTypeBanner
-		}
+	for i := range request.Imp {
+		mediaTypes[request.Imp[i].ID] = getImpMediaType(&request.Imp[i])
 	}
-	return mediaTypes, nil
+	return mediaTypes
+}
+
+// getImpMediaType is the media type of an impression split for the exchange: video when it carries
+// video alone, banner otherwise.
+func getImpMediaType(imp *openrtb2.Imp) openrtb_ext.BidType {
+	if imp.Video != nil && imp.Banner == nil {
+		return openrtb_ext.BidTypeVideo
+	}
+	return openrtb_ext.BidTypeBanner
 }
 
 func newBadServerResponseError(message string) error {

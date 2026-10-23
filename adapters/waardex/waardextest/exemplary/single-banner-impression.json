@@ -41,7 +41,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=101",
         "body": {
-          "id": "0000000000001",
+          "id": "0000000000001-adunit-1-banner",
           "imp": [
             {
               "id": "adunit-1",

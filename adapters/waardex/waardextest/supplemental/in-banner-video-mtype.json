@@ -31,7 +31,7 @@
       "expectedRequest": {
         "uri": "http://justbidit2.xyz:8800/hb?zone=101",
         "body": {
-          "id": "req-1",
+          "id": "req-1-imp-1-banner",
           "imp": [
             {
               "id": "imp-1",
@@ -99,7 +99,7 @@
             "id": "bid-1",
             "impid": "imp-1",
             "price": 1.25,
-            "mtype": 2,
+            "mtype": 1,
             "crid": "crid-1",
             "adm": "<div id=\"ibv\"><script src=\"https://player.example/ibv.js\"></script></div>"
           },
