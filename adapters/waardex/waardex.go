@@ -152,6 +152,11 @@ func (adapter *adapter) MakeBids(internalRequest *openrtb2.BidRequest, externalR
 		}
 	}
 
+	requestedMediaTypes, err := getRequestedMediaTypes(externalRequest)
+	if err != nil {
+		return nil, []error{err}
+	}
+
 	seatBid := bidResp.SeatBid[0]
 	bidResponse := adapters.NewBidderResponseWithBidsCapacity(len(bidResp.SeatBid[0].Bid))
 	if bidResp.Cur != "" {
@@ -160,9 +165,9 @@ func (adapter *adapter) MakeBids(internalRequest *openrtb2.BidRequest, externalR
 	var errs []error
 	for i := 0; i < len(seatBid.Bid); i++ {
 		bid := seatBid.Bid[i]
-		bidType, err := getMediaTypeForBid(&bid, externalRequest)
-		if err != nil {
-			errs = append(errs, err)
+		bidType, ok := requestedMediaTypes[bid.ImpID]
+		if !ok {
+			errs = append(errs, newBadServerResponseError(fmt.Sprintf("Bid %s references unknown imp %s", bid.ID, bid.ImpID)))
 			continue
 		}
 		bidResponse.Bids = append(bidResponse.Bids, &adapters.TypedBid{
@@ -173,33 +178,24 @@ func (adapter *adapter) MakeBids(internalRequest *openrtb2.BidRequest, externalR
 	return bidResponse, errs
 }
 
-// getMediaTypeForBid prefers the bid's own mtype. Many buyers behind the exchange leave it unset;
-// such a bid takes the media type of the impression it was requested for.
-func getMediaTypeForBid(bid *openrtb2.Bid, externalRequest *adapters.RequestData) (openrtb_ext.BidType, error) {
-	switch bid.MType {
-	case openrtb2.MarkupBanner:
-		return openrtb_ext.BidTypeBanner, nil
-	case openrtb2.MarkupVideo:
-		return openrtb_ext.BidTypeVideo, nil
-	case 0:
-		return getRequestedMediaType(externalRequest)
-	default:
-		return "", &errortypes.BadServerResponse{
-			Message: fmt.Sprintf("Unsupported MType %d", bid.MType),
-		}
-	}
-}
-
-// getRequestedMediaType reads the media type of the single banner or video impression every outgoing request carries.
-func getRequestedMediaType(externalRequest *adapters.RequestData) (openrtb_ext.BidType, error) {
+// getRequestedMediaTypes maps every impression of an outgoing request to the single media type it
+// was requested with. That media type, not bid.mtype, decides the bid type: many buyers behind the
+// exchange leave mtype unset, and the exchange passes the buyer's mtype through unchanged, even for
+// in-banner video creatives it answers a banner impression with as banner markup.
+func getRequestedMediaTypes(externalRequest *adapters.RequestData) (map[string]openrtb_ext.BidType, error) {
 	var request openrtb2.BidRequest
 	if err := jsonutil.Unmarshal(externalRequest.Body, &request); err != nil {
-		return "", err
+		return nil, err
 	}
-	if len(request.Imp) > 0 && request.Imp[0].Video != nil {
-		return openrtb_ext.BidTypeVideo, nil
+	mediaTypes := make(map[string]openrtb_ext.BidType, len(request.Imp))
+	for _, imp := range request.Imp {
+		if imp.Video != nil {
+			mediaTypes[imp.ID] = openrtb_ext.BidTypeVideo
+		} else {
+			mediaTypes[imp.ID] = openrtb_ext.BidTypeBanner
+		}
 	}
-	return openrtb_ext.BidTypeBanner, nil
+	return mediaTypes, nil
 }
 
 func newBadServerResponseError(message string) error {
