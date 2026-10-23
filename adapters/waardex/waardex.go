@@ -27,7 +27,7 @@ type adapter struct {
 // The Waardex exchange runs one auction per request and answers with the winning buyer's
 // response alone, so impressions sharing a request would also share a single winner; it also
 // accepts exactly one media type per impression.
-func (adapter *adapter) MakeRequests(request *openrtb2.BidRequest, _ *adapters.ExtraRequestInfo) ([]*adapters.RequestData, []error) {
+func (adapter *adapter) MakeRequests(request *openrtb2.BidRequest, reqInfo *adapters.ExtraRequestInfo) ([]*adapters.RequestData, []error) {
 	var errs []error
 	result := make([]*adapters.RequestData, 0, len(request.Imp))
 	for _, imp := range request.Imp {
@@ -40,6 +40,16 @@ func (adapter *adapter) MakeRequests(request *openrtb2.BidRequest, _ *adapters.E
 			// PBS moves imp.rwdd into imp.ext.prebid for OpenRTB 2.5 bidders, a location the
 			// exchange does not read.
 			imp.Rwdd = 1
+		}
+		if imp.BidFloor > 0 && imp.BidFloorCur != "" && !strings.EqualFold(imp.BidFloorCur, "USD") {
+			// The exchange reads every floor and price in US dollars.
+			bidFloor, err := reqInfo.ConvertCurrency(imp.BidFloor, imp.BidFloorCur, "USD")
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			imp.BidFloor = bidFloor
+			imp.BidFloorCur = "USD"
 		}
 		singleFormatImps := splitByMediaType(imp)
 		if len(singleFormatImps) == 0 {
@@ -103,6 +113,9 @@ func isRewardedInventory(bidderExt *adapters.ExtImpBidder) bool {
 func (adapter *adapter) buildAdapterRequest(prebidBidRequest *openrtb2.BidRequest, params *openrtb_ext.ExtImpWaardex, imp openrtb2.Imp) (*adapters.RequestData, error) {
 	newBidRequest := *prebidBidRequest
 	newBidRequest.Imp = []openrtb2.Imp{imp}
+	// Buyers answering in another currency are rejected by the exchange; Prebid Server converts
+	// the dollar bids back to the request currency.
+	newBidRequest.Cur = []string{"USD"}
 	reqJSON, err := json.Marshal(newBidRequest)
 	if err != nil {
 		return nil, err

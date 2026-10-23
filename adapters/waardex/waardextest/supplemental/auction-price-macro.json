@@ -53,7 +53,10 @@
             "publisher": {
               "id": "pub-1"
             }
-          }
+          },
+          "cur": [
+            "USD"
+          ]
         },
         "impIDs": [
           "imp-1"

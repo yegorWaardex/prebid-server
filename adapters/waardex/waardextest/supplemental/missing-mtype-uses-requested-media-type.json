@@ -62,7 +62,10 @@
             "publisher": {
               "id": "pub-1"
             }
-          }
+          },
+          "cur": [
+            "USD"
+          ]
         },
         "impIDs": [
           "imp-1"
@@ -117,7 +120,10 @@
             "publisher": {
               "id": "pub-1"
             }
-          }
+          },
+          "cur": [
+            "USD"
+          ]
         },
         "impIDs": [
           "imp-1"
