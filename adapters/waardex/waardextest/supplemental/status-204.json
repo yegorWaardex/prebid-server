@@ -14,8 +14,7 @@
         },
         "ext": {
           "bidder": {
-            "zoneId": 101,
-            "host": "tag.test.com"
+            "zoneId": 101
           }
         }
       }
@@ -37,6 +36,11 @@
                     "h": 250
                   }
                 ]
+              },
+              "ext": {
+                "bidder": {
+                  "zoneId": 101
+                }
               }
             }
           ]

@@ -20,86 +20,55 @@ type adapter struct {
 	EndpointTemplate *template.Template
 }
 
-// MakeRequests prepares request information for prebid-server core
+// MakeRequests sends every impression in a request of its own, once per media type it offers.
+// The Waardex exchange runs one auction per request and answers with the winning buyer's
+// response alone, so impressions sharing a request would also share a single winner; it also
+// accepts exactly one media type per impression.
 func (adapter *adapter) MakeRequests(request *openrtb2.BidRequest, _ *adapters.ExtraRequestInfo) ([]*adapters.RequestData, []error) {
 	var errs []error
-	impressionsByZone, impErrs := groupImpressionsByZone(request.Imp)
-	errs = append(errs, impErrs...)
-	if len(impressionsByZone) == 0 {
-		return nil, errs
-	}
-	result := make([]*adapters.RequestData, 0, len(impressionsByZone))
-	for k, imps := range impressionsByZone {
-		bidRequest, err := adapter.buildAdapterRequest(request, &k, imps)
+	result := make([]*adapters.RequestData, 0, len(request.Imp))
+	for _, imp := range request.Imp {
+		bidderExt, waardexExt, err := getImpressionExt(&imp)
 		if err != nil {
 			errs = append(errs, err)
-		} else {
-			result = append(result, bidRequest)
+			continue
+		}
+		if isRewardedInventory(bidderExt) {
+			// PBS moves imp.rwdd into imp.ext.prebid for OpenRTB 2.5 bidders, a location the
+			// exchange does not read.
+			imp.Rwdd = 1
+		}
+		singleFormatImps := splitByMediaType(imp)
+		if len(singleFormatImps) == 0 {
+			errs = append(errs, &errortypes.BadInput{
+				Message: fmt.Sprintf("imp %s has no supported media type (banner or video)", imp.ID),
+			})
+			continue
+		}
+		for _, singleFormatImp := range singleFormatImps {
+			bidRequest, err := adapter.buildAdapterRequest(request, waardexExt, singleFormatImp)
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				result = append(result, bidRequest)
+			}
 		}
 	}
 	return result, errs
 }
 
-// groupImpressionsByZone validates imps and groups them by Waardex-specific parameter `zoneId`.
-func groupImpressionsByZone(imps []openrtb2.Imp) (map[openrtb_ext.ExtImpWaardex][]openrtb2.Imp, []error) {
-	res := make(map[openrtb_ext.ExtImpWaardex][]openrtb2.Imp)
-	errors := make([]error, 0, len(imps))
-	for idx := range imps {
-		imp := imps[idx]
-		impExt, err := getImpressionExt(&imp)
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-		imp.Ext = nil
-		// Additional validation is handled by the core JSON schema (static/bidder-params/waardex.json).
-		if isMultiFormatImp(&imp) {
-			splImps := splitMultiFormatImp(&imp)
-			if len(splImps) == 0 {
-				continue
-			}
-			if _, exists := res[*impExt]; !exists {
-				res[*impExt] = make([]openrtb2.Imp, 0, 2)
-			}
-			res[*impExt] = append(res[*impExt], splImps...)
-		} else {
-			if _, exists := res[*impExt]; !exists {
-				res[*impExt] = make([]openrtb2.Imp, 0, 2)
-			}
-			res[*impExt] = append(res[*impExt], imp)
-		}
-	}
-	return res, errors
-}
-
-func isMultiFormatImp(imp *openrtb2.Imp) bool {
-	formatCount := 0
-	if imp.Video != nil {
-		formatCount++
-	}
-	if imp.Audio != nil {
-		formatCount++
-	}
-	if imp.Banner != nil {
-		formatCount++
-	}
-	if imp.Native != nil {
-		formatCount++
-	}
-	return formatCount > 1
-}
-
-func splitMultiFormatImp(imp *openrtb2.Imp) []openrtb2.Imp {
+// splitByMediaType returns one copy of imp per media type Waardex bids on, each carrying only that media type.
+func splitByMediaType(imp openrtb2.Imp) []openrtb2.Imp {
 	splitImps := make([]openrtb2.Imp, 0, 2)
 	if imp.Banner != nil {
-		impCopy := *imp
+		impCopy := imp
 		impCopy.Video = nil
 		impCopy.Native = nil
 		impCopy.Audio = nil
 		splitImps = append(splitImps, impCopy)
 	}
 	if imp.Video != nil {
-		impCopy := *imp
+		impCopy := imp
 		impCopy.Banner = nil
 		impCopy.Native = nil
 		impCopy.Audio = nil
@@ -108,24 +77,29 @@ func splitMultiFormatImp(imp *openrtb2.Imp) []openrtb2.Imp {
 	return splitImps
 }
 
-func getImpressionExt(imp *openrtb2.Imp) (*openrtb_ext.ExtImpWaardex, error) {
+func getImpressionExt(imp *openrtb2.Imp) (*adapters.ExtImpBidder, *openrtb_ext.ExtImpWaardex, error) {
 	var bidderExt adapters.ExtImpBidder
 	if err := jsonutil.Unmarshal(imp.Ext, &bidderExt); err != nil {
-		return nil, &errortypes.BadInput{
+		return nil, nil, &errortypes.BadInput{
 			Message: fmt.Sprintf("imp.ext is invalid: %s", err.Error()),
 		}
 	}
 	var waardexExt openrtb_ext.ExtImpWaardex
 	if err := jsonutil.Unmarshal(bidderExt.Bidder, &waardexExt); err != nil {
-		return nil, &errortypes.BadInput{
+		return nil, nil, &errortypes.BadInput{
 			Message: fmt.Sprintf("imp.ext.bidder is invalid: %s", err.Error()),
 		}
 	}
-	return &waardexExt, nil
+	return &bidderExt, &waardexExt, nil
 }
 
-func (adapter *adapter) buildAdapterRequest(prebidBidRequest *openrtb2.BidRequest, params *openrtb_ext.ExtImpWaardex, imps []openrtb2.Imp) (*adapters.RequestData, error) {
-	newBidRequest := createBidRequest(prebidBidRequest, imps)
+func isRewardedInventory(bidderExt *adapters.ExtImpBidder) bool {
+	return bidderExt.Prebid != nil && bidderExt.Prebid.IsRewardedInventory != nil && *bidderExt.Prebid.IsRewardedInventory == 1
+}
+
+func (adapter *adapter) buildAdapterRequest(prebidBidRequest *openrtb2.BidRequest, params *openrtb_ext.ExtImpWaardex, imp openrtb2.Imp) (*adapters.RequestData, error) {
+	newBidRequest := *prebidBidRequest
+	newBidRequest.Imp = []openrtb2.Imp{imp}
 	reqJSON, err := json.Marshal(newBidRequest)
 	if err != nil {
 		return nil, err
@@ -146,25 +120,7 @@ func (adapter *adapter) buildAdapterRequest(prebidBidRequest *openrtb2.BidReques
 		Uri:     url,
 		Body:    reqJSON,
 		Headers: headers,
-		ImpIDs:  openrtb_ext.GetImpIDs(imps)}, nil
-}
-
-func createBidRequest(prebidBidRequest *openrtb2.BidRequest, imps []openrtb2.Imp) *openrtb2.BidRequest {
-	bidRequest := *prebidBidRequest
-	bidRequest.Imp = imps
-	if bidRequest.Site != nil {
-		// Need to copy Site as Request is a shallow copy
-		site := *bidRequest.Site
-		site.Publisher = nil
-		bidRequest.Site = &site
-	}
-	if bidRequest.App != nil {
-		// Need to copy App as Request is a shallow copy
-		app := *bidRequest.App
-		app.Publisher = nil
-		bidRequest.App = &app
-	}
-	return &bidRequest
+		ImpIDs:  openrtb_ext.GetImpIDs(newBidRequest.Imp)}, nil
 }
 
 // Builds endpoint url based on adapter-specific pub settings from imp.ext
@@ -204,7 +160,7 @@ func (adapter *adapter) MakeBids(internalRequest *openrtb2.BidRequest, externalR
 	var errs []error
 	for i := 0; i < len(seatBid.Bid); i++ {
 		bid := seatBid.Bid[i]
-		bidType, err := getMediaTypeForBid(&bid)
+		bidType, err := getMediaTypeForBid(&bid, externalRequest)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -217,22 +173,33 @@ func (adapter *adapter) MakeBids(internalRequest *openrtb2.BidRequest, externalR
 	return bidResponse, errs
 }
 
-// getMediaTypeForImp figures out which media type this bid is for
-func getMediaTypeForBid(bid *openrtb2.Bid) (openrtb_ext.BidType, error) {
+// getMediaTypeForBid prefers the bid's own mtype. Many buyers behind the exchange leave it unset;
+// such a bid takes the media type of the impression it was requested for.
+func getMediaTypeForBid(bid *openrtb2.Bid, externalRequest *adapters.RequestData) (openrtb_ext.BidType, error) {
 	switch bid.MType {
 	case openrtb2.MarkupBanner:
 		return openrtb_ext.BidTypeBanner, nil
-	case openrtb2.MarkupAudio:
-		return openrtb_ext.BidTypeAudio, nil
-	case openrtb2.MarkupNative:
-		return openrtb_ext.BidTypeNative, nil
 	case openrtb2.MarkupVideo:
 		return openrtb_ext.BidTypeVideo, nil
+	case 0:
+		return getRequestedMediaType(externalRequest)
 	default:
 		return "", &errortypes.BadServerResponse{
 			Message: fmt.Sprintf("Unsupported MType %d", bid.MType),
 		}
 	}
+}
+
+// getRequestedMediaType reads the media type of the single banner or video impression every outgoing request carries.
+func getRequestedMediaType(externalRequest *adapters.RequestData) (openrtb_ext.BidType, error) {
+	var request openrtb2.BidRequest
+	if err := jsonutil.Unmarshal(externalRequest.Body, &request); err != nil {
+		return "", err
+	}
+	if len(request.Imp) > 0 && request.Imp[0].Video != nil {
+		return openrtb_ext.BidTypeVideo, nil
+	}
+	return openrtb_ext.BidTypeBanner, nil
 }
 
 func newBadServerResponseError(message string) error {

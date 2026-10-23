@@ -16,13 +16,18 @@
         },
         "ext": {
           "bidder": {
-            "zoneId": 101,
-            "host": "tag.test.com"
+            "zoneId": 101
           }
         }
       }
     ]
   },
   "httpCalls": [],
-  "expectedBidResponses": []
+  "expectedBidResponses": [],
+  "expectedMakeRequestsErrors": [
+    {
+      "value": "imp imp-1 has no supported media type (banner or video)",
+      "comparison": "literal"
+    }
+  ]
 }

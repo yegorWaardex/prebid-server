@@ -8,7 +8,7 @@
     "zoneId": {
       "type": "integer",
       "minimum": 1,
-      "description": "Publisher Id to use."
+      "description": "Zone ID assigned by Waardex"
     }
   },
   "required": ["zoneId"]

@@ -14,8 +14,7 @@
         },
         "ext": {
           "bidder": {
-            "zoneId": 201,
-            "host": "tag.test.com"
+            "zoneId": 201
           }
         }
       },
@@ -31,8 +30,7 @@
         },
         "ext": {
           "bidder": {
-            "zoneId": 201,
-            "host": "tag.test.com"
+            "zoneId": 201
           }
         }
       }
@@ -66,22 +64,19 @@
                     "h": 250
                   }
                 ]
-              }
-            },
-            {
-              "id": "banner-2",
-              "banner": {
-                "format": [
-                  {
-                    "w": 300,
-                    "h": 600
-                  }
-                ]
+              },
+              "ext": {
+                "bidder": {
+                  "zoneId": 201
+                }
               }
             }
           ],
           "site": {
-            "page": "http://example.com/multi-zone.html"
+            "page": "http://example.com/multi-zone.html",
+            "publisher": {
+              "id": "3"
+            }
           },
           "user": {
             "buyeruid": "A-38327932832"
@@ -91,8 +86,7 @@
           ]
         },
         "impIDs": [
-          "banner-1",
-          "banner-2"
+          "banner-1"
         ]
       },
       "mockResponse": {
@@ -116,7 +110,62 @@
                   ],
                   "w": 300,
                   "h": 250
-                },
+                }
+              ]
+            }
+          ],
+          "bidid": "resp-0001-bid",
+          "cur": "USD"
+        }
+      }
+    },
+    {
+      "expectedRequest": {
+        "uri": "http://justbidit2.xyz:8800/hb?zone=201",
+        "body": {
+          "id": "0000000000002",
+          "imp": [
+            {
+              "id": "banner-2",
+              "banner": {
+                "format": [
+                  {
+                    "w": 300,
+                    "h": 600
+                  }
+                ]
+              },
+              "ext": {
+                "bidder": {
+                  "zoneId": 201
+                }
+              }
+            }
+          ],
+          "site": {
+            "page": "http://example.com/multi-zone.html",
+            "publisher": {
+              "id": "3"
+            }
+          },
+          "user": {
+            "buyeruid": "A-38327932832"
+          },
+          "cur": [
+            "USD"
+          ]
+        },
+        "impIDs": [
+          "banner-2"
+        ]
+      },
+      "mockResponse": {
+        "status": 200,
+        "body": {
+          "id": "resp-0001",
+          "seatbid": [
+            {
+              "bid": [
                 {
                   "id": "bid-201-2",
                   "impid": "banner-2",
@@ -162,7 +211,12 @@
             "mtype": 1
           },
           "type": "banner"
-        },
+        }
+      ]
+    },
+    {
+      "currency": "USD",
+      "bids": [
         {
           "bid": {
             "id": "bid-201-2",

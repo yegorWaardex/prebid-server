@@ -5,12 +5,20 @@
       {
         "id": "adunit-1",
         "banner": {
-          "format": [{"w": 300,"h": 200}, {"w": 300,"h": 250}]
+          "format": [
+            {
+              "w": 300,
+              "h": 200
+            },
+            {
+              "w": 300,
+              "h": 250
+            }
+          ]
         },
         "ext": {
           "bidder": {
-            "zoneId": 101,
-            "host": "tag.test.com"
+            "zoneId": 101
           }
         }
       }
@@ -24,9 +32,10 @@
     "user": {
       "buyeruid": "A-38327932832"
     },
-    "cur": ["TYR"]
+    "cur": [
+      "TYR"
+    ]
   },
-
   "httpCalls": [
     {
       "expectedRequest": {
@@ -37,26 +46,49 @@
             {
               "id": "adunit-1",
               "banner": {
-                "format": [{"w": 300, "h": 200}, {"w": 300, "h": 250}]
+                "format": [
+                  {
+                    "w": 300,
+                    "h": 200
+                  },
+                  {
+                    "w": 300,
+                    "h": 250
+                  }
+                ]
+              },
+              "ext": {
+                "bidder": {
+                  "zoneId": 101
+                }
               }
             }
           ],
           "site": {
-            "page": "http://example.com/test.html"
+            "page": "http://example.com/test.html",
+            "publisher": {
+              "id": "1"
+            }
           },
           "user": {
             "buyeruid": "A-38327932832"
           },
-          "cur": ["TYR"]
+          "cur": [
+            "TYR"
+          ]
         },
-        "impIDs":["adunit-1"]
+        "impIDs": [
+          "adunit-1"
+        ]
       },
       "mockResponse": {
         "status": 200,
         "body": {
           "id": "75472df2-1cb3-4f8e-9a28-10cb95fe05a4",
-          "seatbid": [{
-              "bid": [{
+          "seatbid": [
+            {
+              "bid": [
+                {
                   "id": "wehM-93KGr0_0_0",
                   "impid": "adunit-1",
                   "price": 0.5,
@@ -64,20 +96,25 @@
                   "crid": "19005",
                   "adid": "19005",
                   "adm": "<!-- admarkup -->",
-                  "cat": ["IAB2"],
+                  "cat": [
+                    "IAB2"
+                  ],
                   "mtype": 1,
-                  "adomain": ["test.com"],
+                  "adomain": [
+                    "test.com"
+                  ],
                   "h": 250,
                   "w": 300
-              }]
-          }],
+                }
+              ]
+            }
+          ],
           "bidid": "wehM-93KGr0",
           "cur": "TYR"
         }
       }
     }
   ],
-
   "expectedBidResponses": [
     {
       "currency": "TYR",
@@ -89,12 +126,16 @@
             "price": 0.5,
             "adm": "<!-- admarkup -->",
             "adid": "19005",
-            "adomain": ["test.com"],
+            "adomain": [
+              "test.com"
+            ],
             "cid": "3706",
             "crid": "19005",
             "w": 300,
             "h": 250,
-            "cat": ["IAB2"],
+            "cat": [
+              "IAB2"
+            ],
             "mtype": 1
           },
           "type": "banner"

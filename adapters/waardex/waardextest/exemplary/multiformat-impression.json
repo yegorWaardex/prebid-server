@@ -21,8 +21,7 @@
         },
         "ext": {
           "bidder": {
-            "zoneId": 102,
-            "host": "tag.test.com"
+            "zoneId": 102
           }
         }
       }
@@ -54,29 +53,26 @@
                     "h": 250
                   }
                 ]
-              }
-            },
-            {
-              "id": "multi-adunit",
-              "video": {
-                "mimes": [
-                  "video/mp4"
-                ],
-                "w": 640,
-                "h": 480
+              },
+              "ext": {
+                "bidder": {
+                  "zoneId": 102
+                }
               }
             }
           ],
           "app": {
+            "id": "app_001",
             "bundle": "com.rovio.angrybirds",
-            "id": "app_001"
+            "publisher": {
+              "id": "2"
+            }
           },
           "user": {
             "buyeruid": "A-38327932832"
           }
         },
         "impIDs": [
-          "multi-adunit",
           "multi-adunit"
         ]
       },
@@ -99,7 +95,58 @@
                   "adomain": [
                     "tag-example.com"
                   ]
-                },
+                }
+              ]
+            }
+          ],
+          "bidid": "wehM-93KGr0"
+        }
+      }
+    },
+    {
+      "expectedRequest": {
+        "uri": "http://justbidit2.xyz:8800/hb?zone=102",
+        "body": {
+          "id": "0000000000001",
+          "imp": [
+            {
+              "id": "multi-adunit",
+              "video": {
+                "mimes": [
+                  "video/mp4"
+                ],
+                "w": 640,
+                "h": 480
+              },
+              "ext": {
+                "bidder": {
+                  "zoneId": 102
+                }
+              }
+            }
+          ],
+          "app": {
+            "id": "app_001",
+            "bundle": "com.rovio.angrybirds",
+            "publisher": {
+              "id": "2"
+            }
+          },
+          "user": {
+            "buyeruid": "A-38327932832"
+          }
+        },
+        "impIDs": [
+          "multi-adunit"
+        ]
+      },
+      "mockResponse": {
+        "status": 200,
+        "body": {
+          "id": "75472df2-1cb3-4f8e-9a28-10cb95fe05a4",
+          "seatbid": [
+            {
+              "bid": [
                 {
                   "id": "bid03",
                   "impid": "multi-adunit",
@@ -143,7 +190,12 @@
             "mtype": 1
           },
           "type": "banner"
-        },
+        }
+      ]
+    },
+    {
+      "currency": "USD",
+      "bids": [
         {
           "bid": {
             "id": "bid03",
