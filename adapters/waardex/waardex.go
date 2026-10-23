@@ -75,6 +75,7 @@ func splitByMediaType(imp openrtb2.Imp) []openrtb2.Imp {
 	splitImps := make([]openrtb2.Imp, 0, 2)
 	if imp.Banner != nil {
 		impCopy := imp
+		impCopy.Banner = withPrimarySize(imp.Banner)
 		impCopy.Video = nil
 		impCopy.Native = nil
 		impCopy.Audio = nil
@@ -88,6 +89,19 @@ func splitByMediaType(imp openrtb2.Imp) []openrtb2.Imp {
 		splitImps = append(splitImps, impCopy)
 	}
 	return splitImps
+}
+
+// withPrimarySize fills banner.w/h from the first format when they are missing. The exchange matches
+// size allowlists and prices banners by w/h, while Prebid usually sends the sizes in format alone.
+func withPrimarySize(banner *openrtb2.Banner) *openrtb2.Banner {
+	if (banner.W != nil && banner.H != nil) || len(banner.Format) == 0 {
+		return banner
+	}
+	bannerCopy := *banner
+	w, h := banner.Format[0].W, banner.Format[0].H
+	bannerCopy.W = &w
+	bannerCopy.H = &h
+	return &bannerCopy
 }
 
 func getImpressionExt(imp *openrtb2.Imp) (*adapters.ExtImpBidder, *openrtb_ext.ExtImpWaardex, error) {
